@@ -1,0 +1,28 @@
+{
+  "name": "aegis-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "d3": "^7.0.0",
+    "chart.js": "^4.0.0"
+
+  },
+  "scripts": {
+    "start": "echo 'Placeholder: Run React start script here'",
+    "build": "echo 'Placeholder: Run React build script here'"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
