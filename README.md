@@ -3,7 +3,7 @@
 **Elevator Pitch:**
 > Aegis: The AI Race Strategist. While other sims model physics, we model *pressure*. Our 'human-flaw' AI simulates panic, selfishness, and heart rate spikes, letting teams test strategies against a chaotic, human race—not just robots.
 
-**Note on Code:** This repository contains a visual prototype developed during the TrackShift 2025 hackathon. Due to time constraints and learning challenges, the backend AI logic is conceptual, but the frontend demo showcases the core visual elements and interactive ideas.
+**Note on Code:** This repository contains a visual prototype developed during the TrackShift 2025 hackathon. Due to time constraints and learning challenges, the backend AI logic is conceptual, but the frontend demo showcases the core visual elements and interactive ideas. Minor visual artifacts, such as animation flickering at the path loop point, exist despite efforts to resolve them.
 
 ---
 ## Inspiration
@@ -17,7 +17,7 @@ What if that team could have seen the future? What if they could have lived that
 
 This interactive web-based demo visualizes the core concepts of Aegis:
 
-1.  **Las Vegas Circuit:** Displays the actual Las Vegas F1 track layout using SVG graphics.
+1.  **Las Vegas Circuit:** Displays the actual Las Vegas F1 track layout using SVG graphics. Agents start from an estimated position on the main straight; precise grid formation will be refined.
 2.  **Animated Agents:** Shows four competitor agents (dots) moving along the track path at different, dynamically adjusted speeds (simulating basic tire wear).
 3.  **Live Leaderboard:** A dynamically updating table showing the current rank and status of each agent based on their lap and position on track.
 4.  **Live Lap Counter:** An integrated SVG display showing the current lap of the race leader, counting up to the total race distance (e.g., 50 laps).
@@ -44,10 +44,9 @@ Given the deadline extension, we pivoted from simple backend placeholders (`.py`
     * Used the `<svg>` element in HTML to draw the track path.
     * Positioned the track correctly within the view using the `viewBox` attribute after significant trial-and-error.
 * **Agent Animation:**
-    * Initially attempted SVG `<animateMotion>`, but faced looping issues.
     * Implemented custom JavaScript animation using `requestAnimationFrame`.
     * Calculated agent positions along the complex SVG path using `path.getPointAtLength()`.
-    * Developed custom logic (coordinate-based reset) to handle agents looping back to the start/finish line, mitigating flickering and direction issues.
+    * Developed custom logic (coordinate-based reset) to handle agents looping back to the start/finish line.
 * **Interactivity & Dynamics:**
     * Used JavaScript to dynamically update agent speeds based on a simple 'wear factor' per lap.
     * Implemented JavaScript to sort agents based on lap and distance to update the leaderboard HTML table in real-time.
@@ -62,17 +61,18 @@ Given the deadline extension, we pivoted from simple backend placeholders (`.py`
 Building this visual demo, especially while learning, presented several hurdles:
 
 * **Finding & Using SVG Data:** Locating accurate and usable SVG path data for the specific F1 track was difficult.
-* **SVG `viewBox` Positioning:** Precisely positioning and scaling the complex SVG track within the desired viewport required numerous attempts and calculations (`viewBox` trial-and-error).
-* **Path Animation Glitches:** Making the agents follow the SVG path smoothly and loop correctly proved challenging. Both `<animateMotion>` and basic `getPointAtLength` with modulo exhibited issues (reversing direction, flickering). We iterated multiple times before landing on the coordinate-based reset logic, though minor visual artifacts may remain.
+* **SVG `viewBox` Positioning:** Precisely positioning and scaling the complex SVG track within the desired viewport required numerous attempts and calculations.
+* **Path Animation Glitches:** Making the agents follow the SVG path smoothly and loop correctly proved challenging. Despite trying multiple JavaScript methods (`modulo`, subtraction, coordinate reset), a **minor visual flicker** persists when agents loop back to the start/finish line. We invested significant time trying to resolve this but acknowledge it needs further refinement.
 * **Lap Counting Accuracy:** Reliably detecting the exact moment an agent crossed the start/finish line on a complex path required refining the JavaScript logic multiple times.
 * **JavaScript Complexity:** Implementing dynamic speed changes, live sorting, DOM manipulation (leaderboard updates, SVG text), and event handling required learning and debugging significant amounts of JavaScript code within the limited timeframe.
+* **Starting Grid Approximation:** The current starting positions are estimated based on path length percentage; accurately mapping them to the official Las Vegas grid formation requires further calibration.
 
 ---
 ## Accomplishments We're Proud Of
 
 * Successfully creating a **working, interactive visual prototype** that demonstrates the core Aegis concept.
 * Integrating and displaying the **actual Las Vegas F1 track layout**.
-* Implementing **dynamic agent movement** along the complex SVG path.
+* Implementing **dynamic agent movement** along the complex SVG path with mostly smooth looping.
 * Building a **live-updating leaderboard** and **lap counter based on the leader**.
 * Adding **interactive Chaos Engine buttons** with visual feedback (rain) and state changes (DNF).
 * Overcoming the numerous technical challenges through **perseverance and rapid learning**.
@@ -82,22 +82,27 @@ Building this visual demo, especially while learning, presented several hurdles:
 
 This hackathon was an intense learning experience:
 
-* **SVG is Powerful but Complex:** Learned the basics of SVG paths, the `viewBox`, and SVG elements like `<text>` and `<ellipse>`.
-* **JavaScript Animation:** Gained hands-on experience with `requestAnimationFrame`, DOM manipulation for dynamic updates, and the complexities of path-following animation (`getPointAtLength`).
-* **Debugging is Key:** Spent significant time using browser developer tools (especially the Console) to diagnose and fix JavaScript errors and CSS layout issues.
-* **Prototyping Value:** Understood the power of building a visual prototype to communicate a complex idea effectively, even when the backend is conceptual.
-* **Iterative Development:** Realized that finding the right solution often involves trying different approaches (like the various animation methods) and adapting based on results.
+* **SVG is Powerful but Finicky:** Learned the basics of SVG paths, `viewBox`, and the challenges of precise coordinate mapping and animation seams.
+* **JavaScript Animation:** Gained hands-on experience with `requestAnimationFrame`, DOM manipulation, and path-following animation.
+* **Debugging is Key:** Spent significant time using browser developer tools (Console) to diagnose issues.
+* **Prototyping Value:** Understood the power of building a visual prototype to communicate a complex idea.
+* **Iterative Development:** Realized finding the right solution often involves trying different approaches and sometimes accepting minor imperfections under deadlines.
 
 ---
-## What's Next for Aegis
+## What's Next for Aegis (Offline Hackathon & Beyond)
 
-This visual demo serves as a strong foundation. The future vision includes:
+This visual demo serves as a strong foundation. Our primary goal for the Top 50 offline hackathon is to build a **fully functional, win-worthy prototype** by tackling the backend and refining the simulation:
 
-1.  **Building the Backend:** Implementing the Python/FastAPI backend to run the core simulation logic.
-2.  **Developing the 'Human-Flaw' AI:** Using Machine Learning (trained on real driver data - telemetry, biometrics, radio sentiment) to create truly unique and unpredictable AI agent 'Personas'.
-3.  **Real Data Integration:** Connecting the 'Chaos Engine' to live weather APIs, real-time race data feeds (timing, flags), etc.
-4.  **Sophisticated Strategy Simulation:** Implementing algorithms to calculate and display actual 'Win Probabilities' based on the simulation state.
-5.  **Partnership:** Collaborating with a real race team to validate and refine Aegis using their data and expertise.
+1.  **Build the Backend:** Implement the Python/FastAPI backend to run the core simulation logic. This was intentionally deferred to allow for more research and preparation time needed to do it right.
+2.  **Develop 'Human-Flaw' AI (MVP):** Implement the basic rule sets for different agent 'Personas' in the backend simulation.
+3.  **Refine Frontend:**
+    * Address the animation flicker at the loop point.
+    * Accurately map starting positions to the official grid.
+    * Connect the frontend to the live backend API instead of using placeholders.
+4.  **Connect Chaos Engine:** Make the buttons trigger actual changes in the backend simulation state (affecting AI decisions, speeds, etc.).
+5.  **Basic Win Probability:** Implement a rudimentary calculation based on lap, position, and potentially agent status.
+
+Beyond the hackathon, the vision remains: Train the AI on real driver data, integrate live data feeds, and partner with a race team.
 
 ---
 ## Built With
@@ -106,3 +111,4 @@ This visual demo serves as a strong foundation. The future vision includes:
 * CSS3 (including animations)
 * JavaScript (ES6+)
 * SVG (Scalable Vector Graphics for track and integrated UI elements)
+* *(Conceptual Backend: Python, FastAPI)*
