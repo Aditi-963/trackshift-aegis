@@ -1,0 +1,204 @@
+/* General Styling matching the logo theme */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #000000;
+    color: #FFFFFF;
+    padding: 20px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+h1, h2 {
+    text-align: center;
+    color: #FF0000;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+h1 {
+    font-size: 2.5em;
+    margin-top: 20px;
+}
+
+/* Logo placeholder */
+.logo {
+    width: 150px;
+    margin-bottom: 20px;
+}
+.logo img {
+    width: 100%;
+    height: auto;
+}
+
+.simulation-area {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    margin-top: 30px;
+    margin-bottom: 30px;
+    width: 95%;
+    max-width: 1400px;
+    flex-wrap: wrap;
+}
+
+/* SVG Track Styling */
+#track-svg {
+    border: 2px solid #FF0000;
+    background-color: #1a1a1a;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+    margin: 0 20px;
+    flex-shrink: 0;
+    /* Dimensions and viewBox set in HTML */
+}
+
+#track-path {
+    fill: none;
+    stroke: #FFFFFF;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Agent Styling (SVG circles) */
+.agent {
+    stroke: #FFFFFF;
+    stroke-width: 1;
+    filter: drop-shadow(0px 0px 3px rgba(255, 255, 255, 0.7));
+}
+
+/* Agent fill colors */
+.agent-1 { fill: #FF0000; /* Red */ }
+.agent-2 { fill: #FFFFFF; /* White */ }
+.agent-3 { fill: #00FFFF; /* Cyan */ }
+.agent-4 { fill: #FFFF00; /* Yellow */ }
+
+/* Styling for the track label inside the SVG */
+#track-label {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 18px; /* Adjust size as needed */
+    font-weight: bold;
+    fill: #FF0000; /* Red text color */
+    text-anchor: middle; /* Horizontally center */
+    dominant-baseline: hanging; /* Aligns top of text to 'y' */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Lap Counter Oval Background (Inside SVG) */
+.lap-oval-bg {
+    fill: #FF0000; /* Red background */
+    stroke: #1a1a1a; /* Dark border (dark grey) */
+    stroke-width: 3; /* Border thickness */
+}
+
+/* Lap Counter Text (Inside SVG) */
+.lap-oval-text {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 16px; /* Adjust size */
+    font-weight: bold;
+    fill: #FFFFFF; /* White text */
+    text-anchor: middle; /* Center horizontally */
+    dominant-baseline: middle; /* Center vertically */
+}
+
+/* Leaderboard Styling */
+.leaderboard {
+    width: 30%;
+    max-width: 400px;
+    padding-left: 30px;
+    flex-grow: 1;
+    min-width: 300px;
+    margin-top: 10px;
+}
+
+.leaderboard h2 { margin-top: 0; }
+table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
+th, td { border: 1px solid #333; padding: 10px; text-align: left; }
+th { background-color: #1a1a1a; color: #FF0000; text-transform: uppercase; letter-spacing: 1px;}
+
+/* Controls Styling */
+.controls { text-align: center; margin-top: 40px; border-top: 2px solid #FF0000; padding-top: 30px; width: 90%; max-width: 1200px; }
+button { background-color: #FF0000; color: #000000; border: none; padding: 12px 25px; margin: 10px; font-size: 1.1em; cursor: pointer; border-radius: 5px; transition: background-color 0.3s ease, transform 0.1s ease; text-transform: uppercase; font-weight: bold; }
+button:hover { background-color: #FFFFFF; color: #FF0000; transform: translateY(-2px); }
+.controls p { font-size: 0.9em; color: #aaaaaa; margin-top: 20px; }
+
+/* Responsive adjustments */
+@media (max-width: 1100px) {
+    .simulation-area { flex-direction: column; align-items: center; }
+    #track-svg { margin: 0 auto 30px auto; width: 90%; height: auto; }
+    .leaderboard { width: 90%; border-left: none; border-top: 2px solid #FF0000; padding-left: 0; padding-top: 30px; }
+}
+
+/* Safety Car Message Styling */
+.safety-car-text {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 24px; /* Large text */
+    font-weight: bold;
+    fill: #FFFF00; /* Yellow text */
+    text-anchor: middle; /* Center horizontally */
+    dominant-baseline: hanging;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    display: none; /* Hidden by default */
+    /* Optional: Add a subtle background or stroke */
+    /* stroke: #000000; */
+    /* stroke-width: 0.5; */
+}
+
+/* Rain Effect Styles */
+#rain-container {
+    position: fixed; /* Cover the whole screen */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Allow clicks to go through */
+    overflow: hidden; /* Hide drops outside the screen */
+    z-index: 999; /* Make sure rain is on top */
+    display: none; /* Hidden by default */
+}
+
+/* Show rain when body has the 'raining' class */
+body.raining #rain-container {
+    display: block;
+}
+
+.raindrop {
+    position: absolute;
+    bottom: 100%; /* Start above the screen */
+    width: 1px;
+    height: 50px; /* Length of the drop */
+    background: linear-gradient(to bottom, rgba(200, 200, 200, 0), rgba(200, 200, 200, 0.4)); /* Faded white/grey */
+    animation: fall linear infinite;
+}
+
+/* Animation definition */
+@keyframes fall {
+    to {
+        transform: translateY(100vh); /* Fall down the full height */
+        opacity: 0;
+    }
+}
+
+/* Style for the active rain button */
+button.active {
+    background-color: #ffffff; /* White background */
+    color: #FF0000; /* Red text */
+    box-shadow: inset 0 0 5px #000000; /* Inner shadow to look pressed */
+    transform: translateY(1px); /* Slight downward press */
+}
+
+/* Styling for the explanation note */
+.explanation-note {
+    font-size: 0.8em;
+    color: #aaaaaa; /* Lighter grey text */
+    text-align: center;
+    margin-top: 30px; /* Space above the note */
+    width: 90%;
+    max-width: 1200px;
+}
+
