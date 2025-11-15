@@ -1,21 +1,29 @@
 // --- Setup ---
 const trackPath = document.getElementById('track-path');
-const lapCounterElement = document.getElementById('lap-count-text'); // Get the SVG text element
-const leaderboardBody = document.querySelector('.leaderboard table tbody'); // Get the leaderboard body
-const rainContainer = document.getElementById('rain-container'); // Get rain container
-const safetyCarMessageElement = document.getElementById('safety-car-message'); // Get safety car message element
+const lapCounterElement = document.getElementById('lap-count-text');
+const leaderboardBody = document.getElementById('leaderboard-body');
+const rainContainer = document.getElementById('rain-container');
+const safetyCarMessageElement = document.getElementById('safety-car-message');
 
-// Agent data structure with wear factors
+// Agent data structure with wear factors & tire life
 let agentData = [
     // Red: Good overall pace, low wear
-    { id: 1, element: document.getElementById('agent-1'), name: "You (Red)", distance: 0, speedFactor: 0.00063, lap: 0, status: 'Racing', hrVariation: 0, wearFactor: 0.0000010 },
+    { id: 1, element: document.getElementById('agent-1'), name: "You (Red)", distance: 0, speedFactor: 0.00063, lap: 0, status: 'Racing', hrVariation: 0, tire: 'Hard', lapsOnTire: 0 },
     // White: Decent pace, medium wear
-    { id: 2, element: document.getElementById('agent-2'), name: "White", distance: 0, speedFactor: 0.00060, lap: 0, status: 'Racing', hrVariation: 0, wearFactor: 0.0000015 },
+    { id: 2, element: document.getElementById('agent-2'), name: "White", distance: 0, speedFactor: 0.00060, lap: 0, status: 'Racing', hrVariation: 0, tire: 'Medium', lapsOnTire: 0 },
     // Cyan: Starts Fastest, higher wear
-    { id: 3, element: document.getElementById('agent-3'), name: "Cyan", distance: 0, speedFactor: 0.00064, lap: 0, status: 'Racing', hrVariation: 0, wearFactor: 0.0000020 },
+    { id: 3, element: document.getElementById('agent-3'), name: "Cyan", distance: 0, speedFactor: 0.00064, lap: 0, status: 'Racing', hrVariation: 0, tire: 'Soft', lapsOnTire: 0 },
     // Yellow: Slowest, low wear
-    { id: 4, element: document.getElementById('agent-4'), name: "Yellow", distance: 0, speedFactor: 0.00045, lap: 0, status: 'Racing', hrVariation: 0, wearFactor: 0.0000012 }
+    { id: 4, element: document.getElementById('agent-4'), name: "Yellow", distance: 0, speedFactor: 0.00045, lap: 0, status: 'Racing', hrVariation: 0, tire: 'Hard', lapsOnTire: 0 }
 ];
+
+// Define wear factors based on tire compound
+const TIRE_WEAR_FACTORS = {
+    'Soft': 0.0000020,
+    'Medium': 0.0000015,
+    'Hard': 0.0000010,
+    'Inter': 0.0000012 // Wear factor for Inters (used in rain)
+};
 
 let pathLength = 0;
 if (trackPath) {
@@ -29,6 +37,7 @@ if (trackPath) {
 const TOTAL_LAPS = 50; // Set race length
 let raceFinished = false; // Track race state
 let animationFrameId = null; // To store the request ID for stopping
+let isPaused = false; // Pause flag
 
 // Coordinates near the end of the path for reset logic
 const END_X = 1069.338623046875;
@@ -42,27 +51,39 @@ let rainInterval = null; // To hold the interval ID for creating drops
 
 // --- Animation Loop ---
 function moveAgents() {
+    // Check for pause first
+    if (isPaused) {
+        requestAnimationFrame(moveAgents); // Keep the loop alive but skip logic
+        return;
+    }
+
     if (raceFinished || pathLength <= 0) return; // Exit if finished or path invalid
 
     agentData.forEach((agent) => {
-        if (!agent.element || agent.status === 'DNF') return; // Skip if agent missing or DNF
+        // Stop moving if DNF or Pitting
+        if (!agent.element || agent.status === 'DNF' || agent.status === 'Pitting') return;
 
-        // --- Calculate Dynamic Speed ---
+        // --- Calculate Dynamic Speed (AI Persona Logic) ---
         let currentSpeedFactor = agent.speedFactor;
-        // Apply wear based on laps completed (simple linear reduction)
-        currentSpeedFactor -= agent.lap * agent.wearFactor;
-        // Ensure speed doesn't go below a minimum threshold (e.g., 50% of original)
+        let wearFactor = TIRE_WEAR_FACTORS[agent.tire] || 0.0000015;
+        // Apply wear based on laps *on this specific tire*
+        currentSpeedFactor -= agent.lapsOnTire * wearFactor;
+        // Ensure speed doesn't go below a minimum threshold
         currentSpeedFactor = Math.max(agent.speedFactor * 0.5, currentSpeedFactor);
+        
+        // Add autonomous 'Rookie Error' AI
+        if (agent.id === 4 && Math.random() < 0.0002) { // 0.02% chance per frame for Yellow
+             console.log("UNFORCED ERROR! Agent 4 (Yellow) has spun out!");
+             agent.status = 'DNF';
+             if(agent.element) agent.element.style.opacity = '0.5';
+             return; // Stop processing this agent
+        }
 
         // Calculate actual speed for this frame, applying global chaosFactor
         let currentSpeed = currentSpeedFactor * pathLength * chaosFactor;
         if (isNaN(currentSpeed)) currentSpeed = 0;
 
-
-        // Store distance from previous frame (useful potentially, though not directly used for counter now)
         let previousDistance = agent.distance;
-
-        // Calculate potential new distance for *next* frame's start
         let potentialDistance = agent.distance + currentSpeed;
 
         // --- Calculate Current Point BEFORE updating distance ---
@@ -70,10 +91,7 @@ function moveAgents() {
         try {
              let distForCurrentPoint = Math.max(0, Math.min(agent.distance, pathLength - 0.1));
              currentPoint = trackPath.getPointAtLength(distForCurrentPoint);
-        } catch(e) {
-             console.error(`Error getting current point for Agent ${agent.id}`, e);
-             return; // Skip this agent this frame
-        }
+        } catch(e) { console.error(`Error getting current point for Agent ${agent.id}`, e); return; }
 
         // --- Update distance for NEXT frame using Coordinate-Based Reset Logic ---
         let distanceToEndSquared = Infinity;
@@ -81,36 +99,24 @@ function moveAgents() {
             distanceToEndSquared = Math.pow(currentPoint.x - END_X, 2) + Math.pow(currentPoint.y - END_Y, 2);
         }
 
-        let completedLapThisFrame = false;
-
         // Check if near the end AND moving forward AND past the halfway point
         if (distanceToEndSquared < RESET_THRESHOLD_SQUARED && currentSpeed > 0 && agent.distance > pathLength / 2) {
-            agent.distance = 0; // Reset distance for the NEXT frame calculation
-            agent.lap++;        // Increment this agent's lap count
-            completedLapThisFrame = true; // Flag that a lap was completed
+            agent.distance = 0; // Reset distance
+            agent.lap++;        // Increment lap
+            agent.lapsOnTire++; // Increment laps on this tire
         } else {
-            // Update distance normally, using modulo for safety wrap
              agent.distance = potentialDistance % pathLength;
-             if (agent.distance < 0) {
-                 agent.distance += pathLength;
-             }
+             if (agent.distance < 0) { agent.distance += pathLength; }
         }
-        // agent.distance now holds the correct starting distance for the NEXT frame
-
+        
         // --- Get Point for THIS Frame's Position ---
-        // Use the distance calculated *before* the reset check (potentialDistance), clamped.
         let distanceToDraw = Math.max(0, Math.min(potentialDistance, pathLength - 0.1));
-         if(potentialDistance >= pathLength) { // If crossing the line this frame, draw slightly before end
-             distanceToDraw = pathLength - 0.1;
-         }
+         if(potentialDistance >= pathLength) { distanceToDraw = pathLength - 0.1; }
 
         let pointToDraw = null;
          try {
              pointToDraw = trackPath.getPointAtLength(distanceToDraw);
-         } catch(e) {
-             console.error(`Error getting point to draw for Agent ${agent.id}`, e);
-             return; // Skip drawing this agent this frame
-         }
+         } catch(e) { console.error(`Error getting point to draw for Agent ${agent.id}`, e); return; }
 
         // --- Position the agent ---
         if (pointToDraw && typeof pointToDraw.x === 'number' && typeof pointToDraw.y === 'number') {
@@ -123,87 +129,91 @@ function moveAgents() {
 
     // --- Sort agents for leaderboard ---
     agentData.sort((a, b) => {
-        // DNFs always go last
         if (a.status === 'DNF' && b.status !== 'DNF') return 1;
         if (b.status === 'DNF' && a.status !== 'DNF') return -1;
         if (a.status === 'DNF' && b.status === 'DNF') return 0;
-
-        // Sort by lap (descending), then by distance (descending)
-        if (b.lap !== a.lap) {
-            return b.lap - a.lap;
-        }
+        // Sort pitting cars below racing cars
+        if (a.status === 'Pitting' && b.status === 'Racing') return 1;
+        if (b.status === 'Pitting' && a.status === 'Racing') return -1;
+        if (a.status === 'Pitting' && b.status === 'Pitting') return 0;
+        // Sort by lap, then by distance
+        if (b.lap !== a.lap) return b.lap - a.lap;
         return b.distance - a.distance;
     });
 
     // --- Lap Counter Logic (Based on Current Leader) ---
     if (!raceFinished && agentData.length > 0) {
-        const leader = agentData[0]; // Get the agent currently in P1
-
-        // Check if the leader's lap count is enough to finish the race
-        // Check only if the leader is actually racing
+        const leader = agentData[0];
         if (leader.status === 'Racing' && leader.lap >= TOTAL_LAPS) {
-            if (lapCounterElement) {
-                lapCounterElement.textContent = TOTAL_LAPS + "/" + TOTAL_LAPS; // Show final lap
-            }
-            raceFinished = true; // Set flag to stop animation
+            if (lapCounterElement) { lapCounterElement.textContent = TOTAL_LAPS + "/" + TOTAL_LAPS; }
+            raceFinished = true;
             console.log(`Race Finished! Leader (Agent ${leader.id}) reached ${TOTAL_LAPS} laps.`);
         } else {
-            // Update the display with the leader's current lap count (or 0 if leader DNF'd somehow)
-            const displayLap = (leader.status === 'Racing') ? leader.lap : (agentData.find(a=>a.status==='Racing')?.lap || 0); // Show 0 if leader DNFd
+            const displayLap = (leader.status === 'Racing') ? leader.lap : (agentData.find(a=>a.status==='Racing')?.lap || 0);
             if (lapCounterElement) {
-                // Ensure lap counter doesn't exceed TOTAL_LAPS visually before finish flag is set
                  lapCounterElement.textContent = Math.min(displayLap, TOTAL_LAPS) + "/" + TOTAL_LAPS;
             }
         }
     }
-    // --- END Lap Counter Logic ---
-
-
+    
     // --- Update Leaderboard HTML ---
     updateLeaderboardHTML();
 
-    // Request the next animation frame ONLY if the race is not finished
+    // Request the next animation frame
     if (!raceFinished) {
-        animationFrameId = requestAnimationFrame(moveAgents); // Store the ID
+        animationFrameId = requestAnimationFrame(moveAgents);
     } else {
          if (animationFrameId) {
-             cancelAnimationFrame(animationFrameId); // Explicitly stop the loop
+             cancelAnimationFrame(animationFrameId);
              animationFrameId = null;
          }
-         displayRaceFinished(); // Call function to show race end message
+         displayRaceFinished();
     }
 } // End of moveAgents function
 
 // Function to update the leaderboard table in the HTML
 function updateLeaderboardHTML() {
     if (!leaderboardBody) return;
-    leaderboardBody.innerHTML = ''; // Clear existing rows
+    leaderboardBody.innerHTML = '';
     agentData.forEach((agent, index) => {
         const rank = index + 1;
         const row = document.createElement('tr');
-        let displayStatus = "";
-        let heartRateDisplay = "-"; // Default for DNF
+        
+        let tireDisplay = "-";
+        let strategyDisplay = "-";
+        let heartRateDisplay = "-";
+        
+        row.style.animation = 'none'; // Clear flashing
+
         if (agent.status === 'DNF') {
-            displayStatus = "DNF";
+            strategyDisplay = "DNF";
             row.style.opacity = '0.6';
+        } else if (agent.status === 'Pitting') {
+            strategyDisplay = "PITTING";
+            tireDisplay = "Inters"; // Changing to Inters
+            heartRateDisplay = "160 bpm"; // Pit stop stress
+            row.style.animation = 'flash 1s infinite'; // Flash row
         } else {
-            // --- Calculate Heart Rate ---
-            let baseHeartRate = 140; // Higher baseline
+            // --- Calculate Heart Rate (AI Persona Logic) ---
+            let baseHeartRate = 140;
             if (rank === 1) baseHeartRate = isRaining ? 135 : 130;
             else if (rank <= 3) baseHeartRate = isRaining ? 150 : 145;
             else baseHeartRate = isRaining ? 155 : 150;
-            // Add smaller, less frequent random variation
             if (Math.random() < 0.1) { agent.hrVariation = Math.floor(Math.random() * 8) - 4; }
              let variation = agent.hrVariation || 0;
              let currentHeartRate = baseHeartRate + variation;
-             heartRateDisplay = `${currentHeartRate} bpm`; // Format display string
-            displayStatus = (agent.id === 1 || agent.id === 4) ? "2-Stop" : (agent.id === 2 ? "1-Stop Risk" : "1-Stop Safe");
+             heartRateDisplay = `${currentHeartRate} bpm`;
+            
+            // Set strategy and tire
+            strategyDisplay = (agent.tire === 'Hard') ? "1-Stop" : "2-Stop";
+            tireDisplay = `${agent.tire} (${agent.lapsOnTire} Laps)`;
         }
-        // Cells for Rank, Driver, Status/Strategy, Win Prob (Static), Heart Rate (Dynamic)
+
         row.innerHTML = `
             <td>${rank}</td>
             <td>Agent ${agent.id} (${agent.name})</td>
-            <td>${displayStatus}</td>
+            <td>${tireDisplay}</td>
+            <td>${strategyDisplay}</td>
             <td>${agent.status === 'DNF' ? '-' : (rank === 1 ? "80%" : (rank === 2 ? "15%" : (rank === 3 ? "4%" : "1%")))}</td>
             <td>${heartRateDisplay}</td>
         `;
@@ -219,7 +229,7 @@ function displayRaceFinished() {
         if (!finishMessage) {
             finishMessage = document.createElement('p');
             finishMessage.id = 'finish-message';
-            finishMessage.style.color = '#FFFF00'; // Yellow text
+            finishMessage.style.color = '#FFFF00';
             finishMessage.style.textAlign = 'center';
             finishMessage.style.marginTop = '20px';
             finishMessage.style.fontWeight = 'bold';
@@ -248,8 +258,7 @@ function createRaindrop() {
     drop.style.animationDuration = (Math.random() * 0.5 + 0.5) + 's';
     drop.style.animationDelay = Math.random() * 1 + 's';
     rainContainer.appendChild(drop);
-    // Remove drop after it falls to prevent buildup
-    setTimeout(() => { if (drop && drop.parentNode === rainContainer) drop.remove(); }, 2000); // Added parentNode check
+    setTimeout(() => { if (drop && drop.parentNode === rainContainer) drop.remove(); }, 2000);
 }
 
 // Function to stop generating rain and reset effects
@@ -259,64 +268,90 @@ function stopRainEffect() {
         rainInterval = null;
     }
     if (rainContainer) {
-        // rainContainer.innerHTML = ''; // Optional: clear existing drops instantly
+        // rainContainer.innerHTML = '';
     }
-    document.body.classList.remove('raining'); // Remove class from body
-    if (rainButton) rainButton.classList.remove('active'); // Remove active class from button
+    document.body.classList.remove('raining');
+    if (rainButton) rainButton.classList.remove('active');
     isRaining = false;
-    chaosFactor = 1.0; // Restore normal speed for non-DNF cars
-    if (safetyCarMessageElement) safetyCarMessageElement.style.display = 'none'; // Hide safety car message
+    chaosFactor = 1.0; // Restore normal speed
+    if (safetyCarMessageElement) safetyCarMessageElement.style.display = 'none';
+
+    // Also, if cars were pitting, put them back to racing on Inters
+    agentData.forEach(agent => {
+        if (agent.status === 'Pitting') {
+            agent.status = 'Racing';
+            agent.tire = 'Inter'; // Assume they got Inters
+            agent.lapsOnTire = 0;
+        }
+    });
 }
 
 // --- Initialization and Error Checks ---
 if (!trackPath || !leaderboardBody || !rainContainer || !safetyCarMessageElement || agentData.some(agent => !agent.element)) {
     console.error("Initialization Error: Couldn't find one or more required elements.");
-    // animationRunning = false; // Allow buttons to potentially still work?
 } else if (pathLength <= 0) {
     console.error("Error: Track path has zero or invalid length.");
-    animationRunning = false;
 } else {
     // Initialize displays
     if (lapCounterElement) {
-        // Initialize based on leader's lap (which is 0 initially)
         lapCounterElement.textContent = agentData[0].lap + "/" + TOTAL_LAPS;
     }
     updateLeaderboardHTML(); // Initial leaderboard draw
-
-    // Start animation loop
     animationFrameId = requestAnimationFrame(moveAgents);
-    console.log("Aegis SVG demo started (Final Version). Track length:", pathLength);
+    console.log("Aegis SVG demo started (Client-Side + Tires + Pit Stops). Track length:", pathLength);
 }
 
 // --- Button Interactivity ---
 const rainButton = document.querySelector('.controls button:nth-of-type(1)');
 const crashButton = document.querySelector('.controls button:nth-of-type(2)');
+const pauseButton = document.getElementById('pause-button'); // Get pause button
 
-if (rainButton && crashButton) {
+if (rainButton && crashButton && pauseButton) {
+    
+    // --- RAIN TOGGLE LOGIC ---
     rainButton.addEventListener('click', () => {
-        if (isRaining || raceFinished) return;
+        if (raceFinished) return;
 
-        console.log("Heavy Rain Triggered");
-        rainButton.classList.add('active'); // Add active class to button
-        document.body.classList.add('raining'); // Add class to body for rain effect
-        isRaining = true;
-        chaosFactor = 0.3; // Significantly slow down agents
-        if (safetyCarMessageElement) safetyCarMessageElement.style.display = 'block'; // Show safety car message
+        if (isRaining) {
+            // If it's raining, stop the rain
+            console.log("Stopping rain...");
+            stopRainEffect();
+        } else {
+            // If it's not raining, start the rain & force pits
+            console.log("Heavy Rain Triggered! Forcing pit stops.");
+            rainButton.classList.add('active');
+            document.body.classList.add('raining');
+            isRaining = true;
+            chaosFactor = 0.3; // Slow down agents (Safety Car pace)
+            if (safetyCarMessageElement) safetyCarMessageElement.style.display = 'block';
+            if (!rainInterval) { rainInterval = setInterval(createRaindrop, 50); }
 
-        if (!rainInterval) {
-            rainInterval = setInterval(createRaindrop, 50); // Start creating drops
+            // --- Pit Stop Logic ---
+            agentData.forEach(agent => {
+                if (agent.status === 'Racing') {
+                    agent.status = 'Pitting'; // Set status
+                    
+                    // Simulate pit stop time (e.g., 3-5 seconds)
+                    const pitStopTime = 3000 + (Math.random() * 2000); // 3-5 sec pit stop
+
+                    setTimeout(() => {
+                        // After pit stop is "done"
+                        agent.status = 'Racing'; // Back to racing
+                        agent.tire = 'Inter'; // New tires
+                        agent.lapsOnTire = 0; // Reset tire age
+                        console.log(`Agent ${agent.id} exits the pits on Inters.`);
+                    }, pitStopTime);
+                }
+            });
         }
-        // Ensure crashed cars stay stopped (speedFactor is already 0)
     });
 
+    // --- CRASH BUTTON LOGIC ---
     crashButton.addEventListener('click', () => {
          if (raceFinished) return;
-
         console.log("Crash Triggered - targeting between White(2) and Yellow(4)");
-        stopRainEffect(); // Stop rain, reset chaosFactor for non-DNF cars
+        stopRainEffect(); // Stop rain, reset chaosFactor
 
-        // --- Crash Logic ---
-        // Sort a temporary copy to find current ranks reliably
         let currentRanking = [...agentData].sort((a, b) => {
              if (a.status === 'DNF' && b.status !== 'DNF') return 1;
              if (b.status === 'DNF' && a.status !== 'DNF') return -1;
@@ -324,53 +359,53 @@ if (rainButton && crashButton) {
              if (b.lap !== a.lap) return b.lap - a.lap;
              return b.distance - a.distance;
          });
-
-        let whiteRank = currentRanking.findIndex(agent => agent.id === 2); // Get index (0-based)
-        let yellowRank = currentRanking.findIndex(agent => agent.id === 4); // Get index (0-based)
-
-        // Adjust if one already DNF'd or not found
+        let whiteRank = currentRanking.findIndex(agent => agent.id === 2);
+        let yellowRank = currentRanking.findIndex(agent => agent.id === 4);
         if (whiteRank === -1) whiteRank = Infinity;
         if (yellowRank === -1) yellowRank = Infinity;
-
         const lowerIndex = Math.min(whiteRank, yellowRank);
         const upperIndex = Math.max(whiteRank, yellowRank);
         let crashedAgentsList = [];
 
-        // Apply DNF based on rank in the current sorted order
         currentRanking.forEach((rankedAgent, index) => {
-             // Find the original agent in agentData to modify status and speedFactor
              let originalAgent = agentData.find(a => a.id === rankedAgent.id);
-
-             if (originalAgent && originalAgent.status === 'Racing') { // Only affect racing cars
-                 // Crash if strictly between White and Yellow index in the current ranking
+             if (originalAgent && originalAgent.status === 'Racing') {
                  if (index > lowerIndex && index < upperIndex) {
-                     console.log(`Agent ${originalAgent.id} (${originalAgent.name}) caught in crash! Rank ${index + 1}`);
-                     originalAgent.speedFactor = 0; // Stop the agent permanently
+                     console.log(`Agent ${originalAgent.id} (${originalAgent.name}) caught in crash!`);
                      originalAgent.status = 'DNF';
                      crashedAgentsList.push(originalAgent.id);
-                     if(originalAgent.element) originalAgent.element.style.opacity = '0.5'; // Visual cue
+                     if(originalAgent.element) originalAgent.element.style.opacity = '0.5';
                  }
              }
          });
 
-
-         if (crashedAgentsList.length === 0 && whiteRank !== Infinity && yellowRank !== Infinity) { // Only do fallback if W&Y were racing
-             console.log("No agents were between White and Yellow to crash.");
-             // Fallback: Crash White and Yellow if they are still racing
+         if (crashedAgentsList.length === 0 && whiteRank !== Infinity && yellowRank !== Infinity) {
+             console.log("Fallback: Crashing White and Yellow");
              agentData.forEach(agent => {
                  if ((agent.id === 2 || agent.id === 4) && agent.status === 'Racing') {
-                     console.log(`Fallback: Crashing Agent ${agent.id} (${agent.name})`);
-                     agent.speedFactor = 0;
                      agent.status = 'DNF';
-                     crashedAgentsList.push(agent.id);
                      if(agent.element) agent.element.style.opacity = '0.5';
                  }
              });
          }
-        // Speed reset handled by stopRainEffect
-
-        updateLeaderboardHTML(); // Update leaderboard immediately
     });
+
+    // --- PAUSE BUTTON LOGIC ---
+    pauseButton.addEventListener('click', () => {
+        isPaused = !isPaused; // Toggle the pause state
+        if (isPaused) {
+            pauseButton.textContent = 'PLAY';
+            pauseButton.classList.add('paused');
+            console.log("Simulation Paused");
+        } else {
+            pauseButton.textContent = 'PAUSE';
+            pauseButton.classList.remove('paused');
+            console.log("Simulation Resumed");
+            // Call moveAgents again *once* to restart the animation loop
+            requestAnimationFrame(moveAgents);
+        }
+    });
+
 } else {
-    console.warn("Control buttons not found.");
+    console.warn("One or more control buttons not found.");
 }
