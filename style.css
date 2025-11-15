@@ -116,7 +116,7 @@ h1 {
 }
 
 .leaderboard h2 { margin-top: 0; }
-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
+table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.8em; }
 th, td { border: 1px solid #333; padding: 10px; text-align: left; }
 th { background-color: #1a1a1a; color: #FF0000; text-transform: uppercase; letter-spacing: 1px;}
 
@@ -202,3 +202,47 @@ button.active {
     max-width: 1200px;
 }
 
+/* Strategy Overview Box */
+.strategy-overview {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #1a1a1a;
+    border-radius: 5px;
+    border: 1px solid #333;
+}
+.strategy-overview h3 {
+    font-size: 1.1em;
+    color: #FF0000;
+    margin-top: 0;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #FF0000;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+.strategy-overview ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+.strategy-overview li {
+    font-size: 0.85em;
+    color: #ccc;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+.strategy-overview li strong {
+    color: #FFFFFF;
+    font-weight: 600;
+}
+
+/* Animation for Pitting status */
+@keyframes flash {
+    0%, 100% {
+        background-color: transparent;
+    }
+    50% {
+        background-color: rgba(255, 255, 0, 0.3); /* Faint yellow flash */
+    }
+}
